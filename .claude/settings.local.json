@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Read(//Users/Andrew/.nvm/versions/**)",
+      "Bash(command -v fnm)",
+      "Bash(command -v volta)",
+      "Read(//usr/local/bin/**)",
+      "Bash(brew list *)",
+      "Read(//usr/local/opt/**)",
+      "Read(//opt/homebrew/**)",
+      "Bash(command -v brew)",
+      "Bash(echo \"brew_exit=$?\")",
+      "Bash(command -v npx)",
+      "Bash(sw_vers)",
+      "Bash(sips -s format png icon.svg --out icon-test.png)",
+      "Bash(file icon-test.png)",
+      "Bash(ls /Users/Andrew/MyApp/.claude 2>/dev/null; mkdir -p /Users/Andrew/MyApp/.claude)",
+      "Bash(command -v gh)",
+      "Bash(gh auth *)",
+      "Bash(command -v git)",
+      "Bash(git --version)",
+      "Read(//Users/Andrew/.ssh/**)",
+      "Bash(git config *)",
+      "Bash(curl -s https://api.github.com/repos/cli/cli/releases/latest)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
