@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, X, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { COLORS } from './theme';
-import { Field, Row2 } from './ui';
+import { Field, Row2, useDragReorder, persistOrder, DragHandle } from './ui';
 
 const BLANK = { category: '', item_name: '', details: [], notes: '' };
 
@@ -21,7 +21,7 @@ export default function TrackedItems({ session }) {
       const { data, error: fetchError } = await supabase
         .from('tracked_items')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('sort_order', { ascending: true });
       if (cancelled) return;
       if (fetchError) setError(fetchError.message);
       else setItems(data || []);
@@ -52,7 +52,7 @@ export default function TrackedItems({ session }) {
       if (editingId === 'new') {
         const { data, error: insertError } = await supabase
           .from('tracked_items')
-          .insert({ ...draft, user_id: session.user.id })
+          .insert({ ...draft, user_id: session.user.id, sort_order: items.length })
           .select()
           .single();
         if (insertError) throw insertError;
@@ -86,6 +86,12 @@ export default function TrackedItems({ session }) {
     if (editingId === id) cancelEdit();
   };
 
+  const { handleDragStart, handleDragOver, handleDrop } = useDragReorder(
+    items,
+    setItems,
+    (next) => persistOrder(supabase, 'tracked_items', next)
+  );
+
   return (
     <div>
       {error && <p style={{ color: COLORS.clay, fontSize: 13, marginTop: 0 }}>{error}</p>}
@@ -97,7 +103,7 @@ export default function TrackedItems({ session }) {
           {items.length === 0 && editingId !== 'new' && (
             <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>Nothing tracked yet.</p>
           )}
-          {items.map((it) =>
+          {items.map((it, i) =>
             editingId === it.id ? (
               <TrackedItemForm
                 key={it.id}
@@ -109,7 +115,15 @@ export default function TrackedItems({ session }) {
                 saving={saving}
               />
             ) : (
-              <TrackedItemRow key={it.id} item={it} onEdit={() => startEdit(it)} onRemove={() => remove(it.id)} />
+              <TrackedItemRow
+                key={it.id}
+                item={it}
+                onEdit={() => startEdit(it)}
+                onRemove={() => remove(it.id)}
+                onDragStart={handleDragStart(i)}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop(i)}
+              />
             )
           )}
           {editingId === 'new' && (
@@ -136,14 +150,17 @@ export default function TrackedItems({ session }) {
   );
 }
 
-function TrackedItemRow({ item, onEdit, onRemove }) {
+function TrackedItemRow({ item, onEdit, onRemove, onDragStart, onDragOver, onDrop }) {
   const filled = (item.details || []).filter((d) => d.label || d.value);
   return (
     <div
       className="cm-row"
       onClick={onEdit}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       style={{ display: 'flex', alignItems: 'baseline', gap: 10, background: COLORS.panelRaised, border: `1px solid ${COLORS.line}`, borderRadius: 7, padding: '10px 12px', cursor: 'pointer', flexWrap: 'wrap' }}
     >
+      <DragHandle onDragStart={onDragStart} />
       {item.category && (
         <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.category}</span>
       )}

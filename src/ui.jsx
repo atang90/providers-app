@@ -1,4 +1,5 @@
 import React from 'react';
+import { GripVertical } from 'lucide-react';
 import { COLORS } from './theme';
 
 export function GlobalStyles() {
@@ -34,4 +35,47 @@ export function Field({ label, children }) {
 
 export function Row2({ children }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>;
+}
+
+// Native HTML5 drag-and-drop reordering, driven by a grip handle on each row.
+// `items`/`setItems` is the list's local state; `persist(next)` is called
+// with the reordered array so the caller can save the new order.
+export function useDragReorder(items, setItems, persist) {
+  const dragIndex = React.useRef(null);
+
+  const handleDragStart = (index) => () => { dragIndex.current = index; };
+  const handleDragOver = (e) => { e.preventDefault(); };
+  const handleDrop = (index) => (e) => {
+    e.preventDefault();
+    const from = dragIndex.current;
+    dragIndex.current = null;
+    if (from === null || from === index) return;
+    const next = items.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(index, 0, moved);
+    setItems(next);
+    persist(next);
+  };
+
+  return { handleDragStart, handleDragOver, handleDrop };
+}
+
+export async function persistOrder(supabase, table, items) {
+  await Promise.all(
+    items.map((item, i) => (item.sort_order === i ? null : supabase.from(table).update({ sort_order: i }).eq('id', item.id)))
+  );
+}
+
+export function DragHandle({ onDragStart }) {
+  return (
+    <span
+      draggable
+      onDragStart={onDragStart}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to reorder"
+      style={{ cursor: 'grab', color: COLORS.inkFaint, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+    >
+      <GripVertical size={14} />
+    </span>
+  );
 }

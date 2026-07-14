@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, X, Phone, Printer, MapPin, Building2, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { COLORS } from './theme';
-import { Field, Row2 } from './ui';
+import { Field, Row2, useDragReorder, persistOrder, DragHandle } from './ui';
 
 const CREDENTIAL_OPTIONS = ['MD', 'DO', 'NP', 'PA', 'RN', 'DDS', 'DPM', 'PharmD', 'PhD', 'LCSW', 'Other'];
 
@@ -34,7 +34,7 @@ export default function Providers({ session }) {
       const { data, error: fetchError } = await supabase
         .from('providers')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('sort_order', { ascending: true });
       if (cancelled) return;
       if (fetchError) setError(fetchError.message);
       else setProviders(data || []);
@@ -76,7 +76,7 @@ export default function Providers({ session }) {
       if (editingId === 'new') {
         const { data, error: insertError } = await supabase
           .from('providers')
-          .insert({ ...draft, user_id: session.user.id })
+          .insert({ ...draft, user_id: session.user.id, sort_order: providers.length })
           .select()
           .single();
         if (insertError) throw insertError;
@@ -110,6 +110,12 @@ export default function Providers({ session }) {
     if (editingId === id) cancelEdit();
   };
 
+  const { handleDragStart, handleDragOver, handleDrop } = useDragReorder(
+    providers,
+    setProviders,
+    (next) => persistOrder(supabase, 'providers', next)
+  );
+
   return (
     <div>
       {error && <p style={{ color: COLORS.clay, fontSize: 13, marginTop: 0 }}>{error}</p>}
@@ -121,7 +127,7 @@ export default function Providers({ session }) {
           {providers.length === 0 && editingId !== 'new' && (
             <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>No contacts yet.</p>
           )}
-          {providers.map((p) =>
+          {providers.map((p, i) =>
             editingId === p.id ? (
               <ProviderForm
                 key={p.id}
@@ -133,7 +139,15 @@ export default function Providers({ session }) {
                 saving={saving}
               />
             ) : (
-              <ProviderRow key={p.id} provider={p} onEdit={() => startEdit(p)} onRemove={() => remove(p.id)} />
+              <ProviderRow
+                key={p.id}
+                provider={p}
+                onEdit={() => startEdit(p)}
+                onRemove={() => remove(p.id)}
+                onDragStart={handleDragStart(i)}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop(i)}
+              />
             )
           )}
           {editingId === 'new' && (
@@ -166,14 +180,17 @@ function fullName(provider) {
   return { name: name || 'Unnamed', creds };
 }
 
-function ProviderRow({ provider, onEdit, onRemove }) {
+function ProviderRow({ provider, onEdit, onRemove, onDragStart, onDragOver, onDrop }) {
   const { name, creds } = fullName(provider);
   return (
     <div
       className="cm-row"
       onClick={onEdit}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       style={{ display: 'flex', alignItems: 'baseline', gap: 10, background: COLORS.panelRaised, border: `1px solid ${COLORS.line}`, borderRadius: 7, padding: '10px 12px', cursor: 'pointer', flexWrap: 'wrap' }}
     >
+      <DragHandle onDragStart={onDragStart} />
       <span style={{ fontSize: 13.5, fontWeight: 550 }}>
         {name}{creds && <span style={{ color: COLORS.inkDim, fontWeight: 500 }}>, {creds}</span>}
       </span>

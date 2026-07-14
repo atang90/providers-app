@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, X, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { COLORS } from './theme';
-import { Field } from './ui';
+import { Field, useDragReorder, persistOrder, DragHandle } from './ui';
 
 const BLANK = { title: '', body: '', entry_date: '' };
 
@@ -28,7 +28,7 @@ export default function Notes({ session }) {
       const { data, error: fetchError } = await supabase
         .from('notes')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
       if (cancelled) return;
       if (fetchError) setError(fetchError.message);
       else setNotes(data || []);
@@ -60,11 +60,11 @@ export default function Notes({ session }) {
       if (editingId === 'new') {
         const { data, error: insertError } = await supabase
           .from('notes')
-          .insert({ ...payload, user_id: session.user.id })
+          .insert({ ...payload, user_id: session.user.id, sort_order: notes.length })
           .select()
           .single();
         if (insertError) throw insertError;
-        setNotes((prev) => [data, ...prev]);
+        setNotes((prev) => [...prev, data]);
       } else {
         const { data, error: updateError } = await supabase
           .from('notes')
@@ -94,6 +94,12 @@ export default function Notes({ session }) {
     if (editingId === id) cancelEdit();
   };
 
+  const { handleDragStart, handleDragOver, handleDrop } = useDragReorder(
+    notes,
+    setNotes,
+    (next) => persistOrder(supabase, 'notes', next)
+  );
+
   return (
     <div>
       {error && <p style={{ color: COLORS.clay, fontSize: 13, marginTop: 0 }}>{error}</p>}
@@ -108,7 +114,7 @@ export default function Notes({ session }) {
           {editingId === 'new' && (
             <NoteForm draft={draft} setDraft={setDraft} onSave={save} onCancel={cancelEdit} saving={saving} />
           )}
-          {notes.map((n) =>
+          {notes.map((n, i) =>
             editingId === n.id ? (
               <NoteForm
                 key={n.id}
@@ -120,7 +126,15 @@ export default function Notes({ session }) {
                 saving={saving}
               />
             ) : (
-              <NoteRow key={n.id} note={n} onEdit={() => startEdit(n)} onRemove={() => remove(n.id)} />
+              <NoteRow
+                key={n.id}
+                note={n}
+                onEdit={() => startEdit(n)}
+                onRemove={() => remove(n.id)}
+                onDragStart={handleDragStart(i)}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop(i)}
+              />
             )
           )}
         </div>
@@ -138,15 +152,18 @@ export default function Notes({ session }) {
   );
 }
 
-function NoteRow({ note, onEdit, onRemove }) {
+function NoteRow({ note, onEdit, onRemove, onDragStart, onDragOver, onDrop }) {
   const preview = (note.body || '').replace(/\s+/g, ' ').trim();
   return (
     <div
       className="cm-row"
       onClick={onEdit}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.line}`, borderRadius: 7, padding: '10px 12px', cursor: 'pointer' }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <DragHandle onDragStart={onDragStart} />
         <span style={{ fontSize: 13.5, fontWeight: 550, flex: 1, minWidth: 0 }}>{note.title || 'Untitled'}</span>
         {note.entry_date && (
           <span style={{ fontSize: 12, color: COLORS.inkDim, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{formatDate(note.entry_date)}</span>
