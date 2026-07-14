@@ -246,16 +246,55 @@ function NoteRow({ note, mentionPool, onEdit, onRemove, onDragStart, onDragOver,
   );
 }
 
+// Mirrors the textarea's text layout in a hidden div to find the pixel
+// position of a given character offset -- textareas have no native API
+// for this, so the popup can follow the caret like an IDE's autocomplete.
+const CARET_MIRROR_PROPS = [
+  'boxSizing', 'width', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'lineHeight', 'fontFamily',
+  'textAlign', 'textTransform', 'textIndent', 'letterSpacing', 'wordSpacing', 'tabSize',
+];
+
+function getCaretCoordinates(textarea, position) {
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(textarea);
+  CARET_MIRROR_PROPS.forEach((prop) => { div.style[prop] = style[prop]; });
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  div.style.top = '0';
+  div.style.left = '-9999px';
+  document.body.appendChild(div);
+
+  div.textContent = textarea.value.slice(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.slice(position) || '.';
+  div.appendChild(span);
+
+  const coords = {
+    top: span.offsetTop + parseInt(style.borderTopWidth, 10) - textarea.scrollTop,
+    left: span.offsetLeft + parseInt(style.borderLeftWidth, 10) - textarea.scrollLeft,
+    height: parseInt(style.lineHeight, 10) || span.offsetHeight,
+  };
+  document.body.removeChild(div);
+  return coords;
+}
+
 function NoteBodyEditor({ value, onChange, mentionPool }) {
   const textareaRef = useRef(null);
   const [query, setQuery] = useState(null); // null = not currently mentioning
   const [queryStart, setQueryStart] = useState(null);
+  const [caretPos, setCaretPos] = useState({ top: 0, left: 0, height: 0 });
+  const [highlighted, setHighlighted] = useState(0);
 
   const matches = useMemo(() => {
     if (query === null) return [];
     const q = query.toLowerCase();
     return mentionPool.filter((m) => m.label.toLowerCase().includes(q)).slice(0, 6);
   }, [query, mentionPool]);
+  const activeIndex = Math.min(highlighted, Math.max(matches.length - 1, 0));
 
   const handleChange = (e) => {
     const text = e.target.value;
@@ -269,6 +308,8 @@ function NoteBodyEditor({ value, onChange, mentionPool }) {
     }
     setQuery(upToCursor.slice(at + 1));
     setQueryStart(at);
+    setHighlighted(0);
+    setCaretPos(getCaretCoordinates(e.target, cursor));
   };
 
   const insertMention = (m) => {
@@ -287,6 +328,26 @@ function NoteBodyEditor({ value, onChange, mentionPool }) {
     });
   };
 
+  const handleKeyDown = (e) => {
+    if (query === null || matches.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlighted((i) => (i + 1) % matches.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlighted((i) => (i - 1 + matches.length) % matches.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      insertMention(matches[activeIndex]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setQuery(null);
+    }
+  };
+
+  const textareaWidth = textareaRef.current ? textareaRef.current.clientWidth : 300;
+  const dropdownLeft = Math.max(0, Math.min(caretPos.left, textareaWidth - 220));
+
   return (
     <div style={{ position: 'relative' }}>
       <textarea
@@ -295,6 +356,7 @@ function NoteBodyEditor({ value, onChange, mentionPool }) {
         rows={8}
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         onBlur={() => setTimeout(() => setQuery(null), 150)}
         placeholder="Write freely… type @ to link a contact or tracked item"
         style={{ resize: 'vertical' }}
@@ -302,20 +364,23 @@ function NoteBodyEditor({ value, onChange, mentionPool }) {
       {query !== null && matches.length > 0 && (
         <div
           style={{
-            position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 4,
+            position: 'absolute', top: caretPos.top + caretPos.height + 2, left: dropdownLeft, minWidth: 200,
             background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 6,
             zIndex: 10, maxHeight: 170, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
         >
-          {matches.map((m) => (
+          {matches.map((m, i) => (
             <button
               type="button"
               key={`${m.type}:${m.id}`}
               onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setHighlighted(i)}
               onClick={() => insertMention(m)}
               style={{
                 display: 'flex', justifyContent: 'space-between', width: '100%', textAlign: 'left',
-                padding: '7px 10px', background: 'none', border: 'none', color: COLORS.ink, fontSize: 13,
+                padding: '7px 10px', border: 'none', fontSize: 13,
+                background: i === activeIndex ? COLORS.panelRaised : 'none',
+                color: COLORS.ink,
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Link2 size={11} color={COLORS.accent} /> {m.label}</span>
