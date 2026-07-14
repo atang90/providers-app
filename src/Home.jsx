@@ -5,10 +5,12 @@ import { COLORS } from './theme';
 import { GlobalStyles } from './ui';
 import Contacts from './Providers';
 import TrackedItems from './TrackedItems';
+import Notes from './Notes';
 
 const TABS = [
   { key: 'contacts', label: 'Contacts' },
   { key: 'tracked', label: 'Tracked Items' },
+  { key: 'notes', label: 'Notes' },
 ];
 
 export default function Home({ session }) {
@@ -51,6 +53,7 @@ export default function Home({ session }) {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '22px 24px 80px' }}>
         {tab === 'contacts' && <Contacts session={session} />}
         {tab === 'tracked' && <TrackedItems session={session} />}
+        {tab === 'notes' && <Notes session={session} />}
       </main>
     </div>
   );
