@@ -6,6 +6,7 @@ import { GlobalStyles, useDragReorder } from './ui';
 import Contacts from './Providers';
 import TrackedItems from './TrackedItems';
 import Notes from './Notes';
+import Profile from './Profile';
 
 const DEFAULT_TABS = [
   { key: 'contacts', label: 'Contacts' },
@@ -26,6 +27,7 @@ function tabsFromOrder(saved) {
 export default function Home({ session }) {
   const [tab, setTab] = useState(null);
   const [tabs, setTabs] = useState(null); // null = still loading from Supabase
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +68,15 @@ export default function Home({ session }) {
 
       <header style={{ borderBottom: `1px solid ${COLORS.line}`, padding: '24px 24px 0', maxWidth: 720, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ margin: 0, color: COLORS.inkDim, fontSize: 13, wordBreak: 'break-all' }}>{session.user.email}</p>
+          <button
+            onClick={() => setShowProfile(true)}
+            title="Profile"
+            style={{ margin: 0, color: COLORS.inkDim, fontSize: 13, wordBreak: 'break-all', background: 'none', border: 'none', padding: 0, textAlign: 'left', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3 }}
+            onMouseEnter={(e) => { e.currentTarget.style.textDecorationColor = COLORS.inkDim; }}
+            onMouseLeave={(e) => { e.currentTarget.style.textDecorationColor = 'transparent'; }}
+          >
+            {session.user.email}
+          </button>
           <button
             onClick={signOut}
             title="Sign out"
@@ -108,6 +118,8 @@ export default function Home({ session }) {
           {tab === 'notes' && <Notes session={session} />}
         </main>
       )}
+
+      {showProfile && <Profile session={session} onClose={() => setShowProfile(false)} />}
     </div>
   );
 }
