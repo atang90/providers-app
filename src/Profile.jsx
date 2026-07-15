@@ -143,7 +143,7 @@ function DangerZone({ session }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 12.5, color: COLORS.inkDim }}>
-            Your account will be locked and your data hidden immediately. This can only be reversed by the app administrator, not from within the app.
+            Your account will be locked and your data hidden immediately. This cannot be undone from within the app, but your account can be recovered by request to the Supabase admin.
           </p>
           {error && <p style={{ margin: 0, color: COLORS.clay, fontSize: 12.5 }}>{error}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
